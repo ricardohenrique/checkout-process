@@ -61,6 +61,10 @@ class PaymentService
     {
         $payment = Payment::where('provider_reference', $providerReference)->firstOrFail();
 
+        if (in_array($payment->status, [Payment::STATUS_SUCCESS, Payment::STATUS_FAILED])) {
+            return $payment;
+        }
+
         $payment->status = $status === 'success'
             ? Payment::STATUS_SUCCESS
             : Payment::STATUS_FAILED;

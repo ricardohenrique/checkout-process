@@ -45,6 +45,6 @@ class Order extends Model
             $subtotal = $subtotal * (1 - $this->discount_percent / 100);
         }
 
-        return $subtotal;
+        return round($subtotal, 2);
     }
 }

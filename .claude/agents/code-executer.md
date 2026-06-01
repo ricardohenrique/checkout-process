@@ -11,9 +11,15 @@ You are an elite software engineer specializing in precise, production-ready imp
 ## Architecture rules (non-negotiable)
 
 **Error handling:**
-- Record-level errors: log as warning with structured context (line, source, error, raw excerpt) and skip.
-- Infrastructure errors: throw a named domain exception, never a raw `\Exception`.
+- Business rule violations: throw a named domain exception (e.g. `InsufficientStockException`), never a raw `\Exception`.
+- Infrastructure/external errors: let them propagate or wrap in a named exception — do not swallow silently.
 - No `echo`, `var_dump`, or `print_r` in any class.
+
+**Transactions:**
+- All mutations that must be atomic (stock + order + payment creation) go inside `DB::transaction`.
+
+**Side-effects:**
+- Post-payment actions (email, warehouse notify, etc.) must not block the HTTP response — dispatch to queued jobs.
 
 ## Communication Style
 
@@ -48,7 +54,7 @@ If you encounter any of these, STOP and report to the user:
 
 1. Check existing structure before writing — look for the relevant existing patterns to follow.
 2. Write production code following all rules above.
-3. Write tests at the right layer: pure unit tests for domain logic using real objects; integration tests for the handler using an in-memory stub writer.
+3. Write tests at the right layer: unit tests for pure domain logic; feature (integration) tests with `RefreshDatabase` and `Http::fake()` for HTTP and service flows.
 4. Register any new service in the DI configuration.
 5. Run the test suite inside Docker to confirm everything passes before reporting done.
 

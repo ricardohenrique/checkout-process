@@ -16,11 +16,7 @@ class StockService
     public function reserve(array $items): void
     {
         foreach ($items as $item) {
-            $product = Product::find($item['product_id']);
-
-            if (!$product) {
-                throw new \InvalidArgumentException("Product {$item['product_id']} not found");
-            }
+            $product = Product::lockForUpdate()->findOrFail($item['product_id']);
 
             if ($product->stock_quantity < $item['quantity']) {
                 throw new InsufficientStockException(

@@ -25,7 +25,7 @@ class CheckoutService
      */
     public function createOrder(int $userId, array $cartItems, int $discountPercent = 0): array
     {
-        $result = DB::transaction(function () use ($userId, $cartItems, $discountPercent) {
+        $order = DB::transaction(function () use ($userId, $cartItems, $discountPercent) {
 
             // Reserve stock
             $this->stockService->reserve($cartItems);
@@ -55,20 +55,23 @@ class CheckoutService
             $order->total = $order->calculateTotal();
             $order->save();
 
-            // Initiate payment
-            $paymentResult = $this->paymentService->initiate($order);
-
-            return [
-                'order' => $order,
-                'payment' => $paymentResult,
-            ];
+            return $order;
         });
 
+        // Initiate payment outside the transaction so the DB connection is not
+        // held open during the external HTTP call.
+        try {
+            $paymentResult = $this->paymentService->initiate($order);
+        } catch (\Exception $e) {
+            $this->handlePaymentFailure($order);
+            throw $e;
+        }
+
         return [
-            'order_id' => $result['order']->id,
-            'total' => $result['order']->total,
-            'status' => $result['order']->status,
-            'payment_url' => $result['payment']['redirect_url'],
+            'order_id' => $order->id,
+            'total' => $order->total,
+            'status' => $order->status,
+            'payment_url' => $paymentResult['redirect_url'],
         ];
     }
 
