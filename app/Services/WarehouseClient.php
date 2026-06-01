@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Contracts\WarehouseClientInterface;
+use App\Exceptions\WarehouseUnavailableException;
 use App\Models\Order;
 use Illuminate\Support\Facades\Http;
 
@@ -24,7 +25,7 @@ class WarehouseClient implements WarehouseClientInterface
         );
 
         if (!$response->successful()) {
-            throw new \RuntimeException(
+            throw new WarehouseUnavailableException(
                 "Warehouse notification failed (HTTP {$response->status()})"
             );
         }

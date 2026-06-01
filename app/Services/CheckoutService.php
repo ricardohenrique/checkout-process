@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Events\OrderPaid;
+use App\Exceptions\PaymentGatewayException;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
@@ -40,8 +41,9 @@ class CheckoutService
             ]);
 
             // Create order items
+            $products = Product::whereIn('id', array_column($cartItems, 'product_id'))->get()->keyBy('id');
             foreach ($cartItems as $item) {
-                $product = Product::find($item['product_id']);
+                $product = $products[$item['product_id']];
 
                 OrderItem::create([
                     'order_id' => $order->id,
@@ -63,7 +65,7 @@ class CheckoutService
         // held open during the external HTTP call.
         try {
             $paymentResult = $this->paymentService->initiate($order);
-        } catch (\Exception $e) {
+        } catch (PaymentGatewayException $e) {
             $this->handlePaymentFailure($order);
             throw $e;
         }

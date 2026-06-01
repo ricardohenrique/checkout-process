@@ -192,7 +192,7 @@ class PostPaymentTest extends TestCase
         ]);
 
         // Trigger the failed() callback directly — simulates all retries exhausted
-        $listener  = new NotifyWarehouse();
+        $listener  = app(NotifyWarehouse::class);
         $event     = new OrderPaid(Order::find($payment->order_id));
         $exception = new \RuntimeException('503');
         $listener->failed($event, $exception);
@@ -230,6 +230,51 @@ class PostPaymentTest extends TestCase
         ]);
 
         $this->assertDatabaseMissing('audit_logs', ['event' => 'payment.success']);
+    }
+
+    // ── Edge cases ────────────────────────────────────────────────────────────
+
+    public function test_webhook_returns_200_for_unknown_provider_reference(): void
+    {
+        $response = $this->postJson('/api/payments/callback', [
+            'provider_reference' => 'PAY-DOESNOTEXIST',
+            'status'             => 'success',
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJson(['status' => 'ok']);
+        $this->assertDatabaseCount('loyalty_points', 0);
+        $this->assertDatabaseCount('audit_logs', 0);
+    }
+
+    public function test_email_failure_does_not_block_loyalty_points(): void
+    {
+        Mail::shouldReceive('to')->andThrow(new \RuntimeException('SMTP down'));
+
+        $payment = $this->placeOrderAndGetPayment();
+
+        $this->postJson('/api/payments/callback', [
+            'provider_reference' => $payment->provider_reference,
+            'status'             => 'success',
+        ]);
+
+        $this->assertDatabaseHas('orders', ['id' => $payment->order_id, 'status' => Order::STATUS_PAID]);
+        $this->assertDatabaseCount('loyalty_points', 1);
+    }
+
+    public function test_warehouse_is_not_notified_on_payment_failure(): void
+    {
+        $payment = $this->placeOrderAndGetPayment();
+
+        $this->postJson('/api/payments/callback', [
+            'provider_reference' => $payment->provider_reference,
+            'status'             => 'failed',
+        ]);
+
+        $warehouseCall = collect(Http::recorded())
+            ->first(fn ($pair) => str_contains($pair[0]->url(), 'warehouse.example.com'));
+
+        $this->assertNull($warehouseCall);
     }
 
     // ── Webhook response time ─────────────────────────────────────────────────

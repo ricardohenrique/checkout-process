@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Exceptions\PaymentGatewayException;
 use App\Models\Order;
 use App\Models\Payment;
 use Illuminate\Support\Facades\Http;
@@ -33,7 +34,7 @@ class PaymentService
         ]);
 
         if (!$response->successful()) {
-            throw new \RuntimeException(
+            throw new PaymentGatewayException(
                 "Payment gateway rejected session creation (HTTP {$response->status()})"
             );
         }
@@ -57,7 +58,7 @@ class PaymentService
      * Process a payment callback from the provider.
      * Called when the payment provider sends a webhook notification.
      */
-    public function processCallback(string $providerReference, string $status, array $metadata = []): Payment
+    public function processCallback(string $providerReference, string $status): Payment
     {
         $payment = Payment::where('provider_reference', $providerReference)->firstOrFail();
 

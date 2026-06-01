@@ -16,9 +16,11 @@ class NotifyWarehouse implements ShouldQueue
     public array $backoff = [10, 30, 60, 120, 300];
     public int $timeout = 10;
 
+    public function __construct(private WarehouseClientInterface $client) {}
+
     public function handle(OrderPaid $event): void
     {
-        app(WarehouseClientInterface::class)->notify($event->order);
+        $this->client->notify($event->order);
     }
 
     public function failed(OrderPaid $event, \Throwable $exception): void

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Exceptions\PaymentGatewayException;
 use App\Models\Product;
 use App\Models\Order;
 use App\Models\Payment;
@@ -163,7 +164,7 @@ class CheckoutTest extends TestCase
     public function test_gateway_failure_releases_stock_and_marks_order_failed(): void
     {
         $this->mock(\App\Services\PaymentService::class, function ($mock) {
-            $mock->shouldReceive('initiate')->andThrow(new \RuntimeException('Gateway unavailable'));
+            $mock->shouldReceive('initiate')->andThrow(new PaymentGatewayException('Gateway unavailable'));
         });
 
         $product = Product::find(1);

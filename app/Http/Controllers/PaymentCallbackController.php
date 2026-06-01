@@ -39,7 +39,6 @@ class PaymentCallbackController extends Controller
             $payment = $this->paymentService->processCallback(
                 providerReference: $validated['provider_reference'],
                 status: $validated['status'],
-                metadata: $validated['metadata'] ?? [],
             );
 
             $order = $payment->order;
