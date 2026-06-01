@@ -12,6 +12,7 @@ services:
       - ./bootstrap/app.php:/app/bootstrap/app.php
       - ./database/migrations:/app/database/migrations
       - ./database/seeders:/app/database/seeders
+      - ./database/database.sqlite:/app/database/database.sqlite
       - ./routes:/app/routes
       - ./tests:/app/tests
       - ./resources:/app/resources
