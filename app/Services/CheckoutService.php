@@ -1,0 +1,104 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\Order;
+use App\Models\OrderItem;
+use App\Models\Product;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+
+class CheckoutService
+{
+    public function __construct(
+        private StockService $stockService,
+        private PaymentService $paymentService,
+    ) {}
+
+    /**
+     * Create an order from the given cart items and initiate payment.
+     *
+     * @param int $userId
+     * @param array $cartItems Array of ['product_id' => int, 'quantity' => int]
+     * @param int $discountPercent
+     * @return array Order details and payment redirect URL
+     */
+    public function createOrder(int $userId, array $cartItems, int $discountPercent = 0): array
+    {
+        $result = DB::transaction(function () use ($userId, $cartItems, $discountPercent) {
+
+            // Reserve stock
+            $this->stockService->reserve($cartItems);
+
+            // Create the order
+            $order = Order::create([
+                'user_id' => $userId,
+                'status' => Order::STATUS_PENDING,
+                'total' => 0,
+                'discount_percent' => $discountPercent,
+            ]);
+
+            // Create order items
+            foreach ($cartItems as $item) {
+                $product = Product::find($item['product_id']);
+
+                OrderItem::create([
+                    'order_id' => $order->id,
+                    'product_id' => $product->id,
+                    'quantity' => $item['quantity'],
+                    'price' => $product->price,
+                ]);
+            }
+
+            // Calculate and save total
+            $order->load('items');
+            $order->total = $order->calculateTotal();
+            $order->save();
+
+            // Initiate payment
+            $paymentResult = $this->paymentService->initiate($order);
+
+            return [
+                'order' => $order,
+                'payment' => $paymentResult,
+            ];
+        });
+
+        return [
+            'order_id' => $result['order']->id,
+            'total' => $result['order']->total,
+            'status' => $result['order']->status,
+            'payment_url' => $result['payment']['redirect_url'],
+        ];
+    }
+
+    /**
+     * Handle a successful payment: update order status and trigger post-payment actions.
+     */
+    public function handlePaymentSuccess(Order $order): void
+    {
+        $order->status = Order::STATUS_PAID;
+        $order->save();
+
+        Log::info("Order {$order->id} marked as paid.");
+    }
+
+    /**
+     * Handle a failed payment: update order and release stock.
+     */
+    public function handlePaymentFailure(Order $order): void
+    {
+        $order->status = Order::STATUS_FAILED;
+        $order->save();
+
+        // Release reserved stock
+        $items = $order->items->map(fn ($item) => [
+            'product_id' => $item->product_id,
+            'quantity' => $item->quantity,
+        ])->toArray();
+
+        $this->stockService->release($items);
+
+        Log::info("Order {$order->id} failed. Stock released.");
+    }
+}

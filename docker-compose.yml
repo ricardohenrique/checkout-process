@@ -1,0 +1,19 @@
+services:
+  app:
+    build: .
+    container_name: checkout-assessment
+    ports:
+      - "8000:8000"
+    # Mount editable assessment dirs from the host so changes are live.
+    # The framework scaffold (artisan, config/, public/, storage/) and
+    # the vendor/ directory stay inside the image.
+    volumes:
+      - ./app:/app/app
+      - ./bootstrap/app.php:/app/bootstrap/app.php
+      - ./database/migrations:/app/database/migrations
+      - ./database/seeders:/app/database/seeders
+      - ./routes:/app/routes
+      - ./tests:/app/tests
+      - ./resources:/app/resources
+      - ./composer.json:/app/composer.json
+      - ./phpunit.xml:/app/phpunit.xml
