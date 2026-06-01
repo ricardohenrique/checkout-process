@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Events\OrderPaid;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
@@ -80,8 +81,14 @@ class CheckoutService
      */
     public function handlePaymentSuccess(Order $order): void
     {
+        if ($order->status === Order::STATUS_PAID) {
+            return;
+        }
+
         $order->status = Order::STATUS_PAID;
         $order->save();
+
+        OrderPaid::dispatch($order);
 
         Log::info("Order {$order->id} marked as paid.");
     }

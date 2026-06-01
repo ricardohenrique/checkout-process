@@ -7,7 +7,6 @@ use App\Services\PaymentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 
 class PaymentCallbackController extends Controller
 {
@@ -47,16 +46,6 @@ class PaymentCallbackController extends Controller
 
             if ($payment->status === \App\Models\Payment::STATUS_SUCCESS) {
                 $this->checkoutService->handlePaymentSuccess($order);
-
-                // Send confirmation email
-                try {
-                    Mail::to("user_{$order->user_id}@example.com")
-                        ->send(new \App\Mail\OrderConfirmationMail($order));
-                } catch (\Exception $e) {
-                    Log::warning("Failed to send confirmation email for order {$order->id}", [
-                        'error' => $e->getMessage(),
-                    ]);
-                }
             } else {
                 $this->checkoutService->handlePaymentFailure($order);
             }
